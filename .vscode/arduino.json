@@ -2,5 +2,6 @@
     "board": "arduino:avr:pro",
     "configuration": "cpu=16MHzatmega328",
     "port": "/dev/cu.usbserial-A61OXX6Q",
-    "sketch": "Guest-TX.ino"
+    "sketch": "Guest-TX.ino",
+    "output": "./build"
 }
