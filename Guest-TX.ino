@@ -90,7 +90,7 @@ void setup()
     Save_to_EEPROM();
     Beep(3);
   } else {
-    Beep(4);
+    Beep(1);
   }
 
   
