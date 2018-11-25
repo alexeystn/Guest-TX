@@ -3,7 +3,6 @@
 #include "LCD.h"
 #include "PPM.h"
 #include "EEPROM.h"
-#include "Interface.h"
 
 #define FRAMERATE 40
 
@@ -11,6 +10,17 @@
 #define ROLL_PIN      A1
 #define YAW_PIN       A2
 #define THROTTLE_PIN  A3
+
+#define BUTTON_0_PIN  A5
+#define BUTTON_1_PIN  A6
+
+#define BEEPER_PIN    3
+
+#define BATTERY_PIN   A4
+
+
+
+
 
 uint8_t adc_inputs[4] = {ROLL_PIN, PITCH_PIN, YAW_PIN, THROTTLE_PIN};
 
@@ -27,6 +37,32 @@ int16_t ppm[PPM_CH_NUM];
 
 uint8_t i = 0;
 uint8_t j = 0;
+
+void HW_Init(void)
+{
+  Serial.begin(9600);
+  pinMode(BUTTON_0_PIN, INPUT);
+  pinMode(BUTTON_1_PIN, INPUT);
+}
+
+uint8_t Button_Pressed(uint8_t n)
+{
+  if (n == 0)
+    return !(digitalRead(BUTTON_0_PIN));
+  else
+    return !(digitalRead(BUTTON_1_PIN));
+}
+
+void Beep(uint8_t num)
+{
+  for (uint8_t i = 0; i < num; i++) {
+    analogWrite(BEEPER_PIN, 100);
+    delay(200);
+    analogWrite(BEEPER_PIN, 0);
+    delay(200);    
+  }
+}
+
 
 void setup()
 {
@@ -288,7 +324,4 @@ void wait_for_delay()
   else
     next_time += (1000/FRAMERATE);
 }
-
-
-
 
