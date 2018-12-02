@@ -9,9 +9,4 @@ enum axis {
   AXIS_NUM
 };
 
-enum battery {
-  BATTERY_TX,
-  BATTERY_CH
-};
-
 #endif

@@ -8,21 +8,14 @@
 #define LCD_WR_PIN  6
 #define LCD_DA_PIN  7
 
-#define LCD_CS(x) digitalWrite(LCD_CS_PIN, x) 
-#define LCD_WR(x) digitalWrite(LCD_WR_PIN, x)
-#define LCD_DA(x) digitalWrite(LCD_DA_PIN, x)
+#define LCD_TRIM_CLEAR  99
 
-#define LCD_DELAY delayMicroseconds(3)
-
-#define LCD_CH_CLEAR  99
-
-void LCD_Init(void);
-void LCD_Refresh(void);
-void LCD_Show_Number(uint16_t n);
-void LCD_Show_Trim(uint8_t ch, int8_t value);
-void LCD_Show_Battery(uint8_t bt, uint8_t value);
-void LCD_Show_Axes(uint8_t enable);
-void LCD_Show_CAL(void);
+void LCD_init(void);
+void LCD_refresh(void);
+void LCD_showNumber(uint16_t number);
+void LCD_showTrim(uint8_t channel, int8_t value);
+void LCD_showBattery(uint8_t value);
+void LCD_showAxes(uint8_t enable);
+void LCD_showCalibration(void);
 
 #endif // LCD_H
-

@@ -9,7 +9,9 @@
 #define PPM_PIN           4           
 #define PPM_PULSE_LENGTH  300
 
-void PPM_Init(void);
-void PPM_Send(void);
+extern int16_t ppm[PPM_CH_NUM];
+
+void ppmInit(void);
+void ppmSend(void);
 
 #endif

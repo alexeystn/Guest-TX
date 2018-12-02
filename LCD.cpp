@@ -1,18 +1,24 @@
 #include "LCD.h"
 
-uint8_t lcd_buffer[11];
+#define LCD_CS(x) digitalWrite(LCD_CS_PIN, x) 
+#define LCD_WR(x) digitalWrite(LCD_WR_PIN, x)
+#define LCD_DA(x) digitalWrite(LCD_DA_PIN, x)
+#define LCD_DELAY delayMicroseconds(3)
 
-static void send_buffer(uint8_t *buff, uint8_t len);
+static void sendBuffer(uint8_t *buff, uint8_t len);
 
-void LCD_Refresh(void)
+uint8_t lcdBuffer[11];
+
+void LCD_refresh(void)
 {
-  lcd_buffer[0] = 0x40;
-  send_buffer(lcd_buffer, 88);
+  lcdBuffer[0] = 0x40;
+  sendBuffer(lcdBuffer, 88);
 }
 
-void LCD_Init(void)
+const uint8_t initSequence[5][2] = {{0x0A, 0x40}, {0x06, 0x00}, {0x00, 0x40}, {0x00, 0xC0}, {0x01, 0x00}};
+
+void LCD_init(void)
 {
-  uint8_t init_buffer[5][2] = {{0x0A, 0x40}, {0x06, 0x00}, {0x00, 0x40}, {0x00, 0xC0}, {0x01, 0x00}};
   pinMode(LCD_CS_PIN, OUTPUT);
   pinMode(LCD_WR_PIN, OUTPUT);
   pinMode(LCD_DA_PIN, OUTPUT);
@@ -20,102 +26,96 @@ void LCD_Init(void)
   LCD_WR(1);
   LCD_DA(1);
   delay(100);
-  memset(lcd_buffer, 0, 11);
-  LCD_Refresh();
+  memset(lcdBuffer, 0, 11);
+  LCD_refresh();
   for (uint8_t i = 0; i < 5; i++) {
-    send_buffer(&init_buffer[i][0], 11);
+    sendBuffer(&initSequence[i][0], 11);
   }
 }
 
-const uint8_t num_mask[10] = {0xAF, 0x06, 0xCB, 0x4F, 0x66, 0x6D, 0xED, 0x27, 0xEF, 0x6F};
+const uint8_t digits[10] = {0xAF, 0x06, 0xCB, 0x4F, 0x66, 0x6D, 0xED, 0x27, 0xEF, 0x6F};
 
-void LCD_Show_Number(uint16_t n)
+void LCD_showNumber(uint16_t n)
 {
   uint8_t *pnt;
   uint8_t pos;
-  uint8_t digit;
+  uint8_t d;
   for (pos = 0; pos < 3; pos++) {
     switch (pos) {
-      case 0: pnt = &lcd_buffer[4]; break;
-      case 1: pnt = &lcd_buffer[7]; break;
-      case 2: pnt = &lcd_buffer[3]; break;
+      case 0: pnt = &lcdBuffer[4]; break;
+      case 1: pnt = &lcdBuffer[7]; break;
+      case 2: pnt = &lcdBuffer[3]; break;
       default: return;
     }
-    if (pos == 1) {
+    if (pos == 1) { // middle digit, half-bytes are reversed
       *pnt &= ~0xFE;
     } else {
       *pnt &= ~0xEF;
     }
-    digit = n % 10;
+    *pnt |= digits[n % 10];
     n /= 10;
-    *pnt |= num_mask[digit];
     if (pos == 1) {
-      *pnt = (((*pnt)&0xF0)>>4) | (((*pnt)&0x0F)<<4);
+      *pnt = (((*pnt) & 0xF0)>>4) | (((*pnt) & 0x0F)<<4);
     }    
   }
 }
 
-
-void LCD_Show_CAL(void)
+void LCD_showCalibration(void)
 {
-  lcd_buffer[3] &= ~0xEF;
-  lcd_buffer[7] &= ~0xFE;
-  lcd_buffer[4] &= ~0xEF;
-  lcd_buffer[3] |= 0xA9;
-  lcd_buffer[7] |= 0x7E;
-  lcd_buffer[4] |= 0xA8;
+  lcdBuffer[3] &= ~0xEF;
+  lcdBuffer[7] &= ~0xFE;
+  lcdBuffer[4] &= ~0xEF;
+  lcdBuffer[3] |= 0xA9; // C
+  lcdBuffer[7] |= 0x7E; // A
+  lcdBuffer[4] |= 0xA8; // L
 }
  
-const uint8_t ax_byte[4]  = {  6, 5, 2,  1 };
-const uint8_t cnt_byte[4] = { 10, 4, 3, 10 };
-const uint8_t cnt_bit[4]  = {  4, 3, 3,  6 };
+const uint8_t axisMarksByte[4]  = {  6, 5, 2,  1 };
+const uint8_t centerMarkByte[4] = { 10, 4, 3, 10 };
+const uint8_t centerMarkBit[4]  = {  4, 3, 3,  6 };
 
-void LCD_Show_Trim(uint8_t ch, int8_t value)
+void LCD_showTrim(uint8_t channel, int8_t value)
 {
-  if (value == LCD_CH_CLEAR) {
-    lcd_buffer[cnt_byte[ch]] &= ~(0x80 >> cnt_bit[ch]);
-    lcd_buffer[ax_byte[ch]] = 0;
+  if (value == LCD_TRIM_CLEAR) {
+    lcdBuffer[centerMarkByte[channel]] &= ~(0x80 >> centerMarkBit[channel]);
+    lcdBuffer[axisMarksByte[channel]] = 0;
     return;
   }
   value = constrain(value, -4, 4);
-  if (ch == THROTTLE) value = -value;
+  if (channel == THROTTLE) 
+    value = -value;
   if (value == 0) {
-    lcd_buffer[ax_byte[ch]] = 0;
-    lcd_buffer[cnt_byte[ch]] |= (0x80 >> cnt_bit[ch]);
+    lcdBuffer[axisMarksByte[channel]] = 0;
+    lcdBuffer[centerMarkByte[channel]] |= (0x80 >> centerMarkBit[channel]);
   } else {
-    lcd_buffer[cnt_byte[ch]] &= ~(0x80 >> cnt_bit[ch]);
+    lcdBuffer[centerMarkByte[channel]] &= ~(0x80 >> centerMarkBit[channel]);
     if (value < 0) {
-      lcd_buffer[ax_byte[ch]] = 0x80 >> (8 + value); 
+      lcdBuffer[axisMarksByte[channel]] = 0x80 >> (8 + value); 
     } else {
-      lcd_buffer[ax_byte[ch]] = 0x80 >> (4 - value);
+      lcdBuffer[axisMarksByte[channel]] = 0x80 >> (4 - value);
     }
   }
 }
 
-const uint8_t bat_mask[] = {0x04, 0x06, 0x26, 0x36, 0xB6, 0xF6};
+const uint8_t batteryMarks[] = {0x04, 0x44, 0xC4, 0xD4, 0xF4, 0xF6};
 
-void LCD_Show_Battery(uint8_t bt, uint8_t value)
+void LCD_showBattery(uint8_t value)
 {
-  uint8_t *pnt;
-  if (bt == BATTERY_TX)
-    pnt = &lcd_buffer[8];
-  else
-    pnt = &lcd_buffer[9];
+  uint8_t *pnt = &lcdBuffer[8];
   *pnt &= ~0xF6;
   if (value > 5)
     value = 5;
-  *pnt |= bat_mask[value];
+  *pnt |= batteryMarks[value];
 }
 
-void LCD_Show_Axes(uint8_t enable) {
+void LCD_showAxes(uint8_t enable) {
   if (enable)
-    lcd_buffer[10] |= 0x01;
+    lcdBuffer[10] |= 0x01;
   else
-    lcd_buffer[10] &= ~0x01;
-  
+    lcdBuffer[10] &= ~0x01;
 }
 
-static void send_bit(uint8_t b) 
+static void sendBit(uint8_t b) 
 {
   LCD_DA(b);
   LCD_DELAY;
@@ -125,7 +125,7 @@ static void send_bit(uint8_t b)
   LCD_DELAY;
 }
 
-static void send_start_bit(void)
+static void sendStartBit(void)
 {
   LCD_DA(0);
   LCD_CS(1);
@@ -136,23 +136,21 @@ static void send_start_bit(void)
   LCD_DELAY;
 }
 
-static void send_buffer(uint8_t *buff, uint8_t len)
+static void sendBuffer(uint8_t *buff, uint8_t len)
 {
-  send_start_bit();
-  send_bit(1);
-
-  uint8_t byte_cnt = 0;
-  uint8_t bit_mask = 0x80;
+  uint8_t byteCnt = 0;
+  uint8_t bitMask = 0x80;
+  sendStartBit();
+  sendBit(1);
   while (len-- > 0) {
-    if (buff[byte_cnt] & bit_mask)
-      send_bit(1);
+    if (buff[byteCnt] & bitMask)
+      sendBit(1);
     else
-      send_bit(0);
-    bit_mask >>= 1;
-    if (bit_mask == 0) {
-      bit_mask = 0x80;
-      byte_cnt++;
+      sendBit(0);
+    bitMask >>= 1;
+    if (bitMask == 0) {
+      bitMask = 0x80;
+      byteCnt++;
     }
   }
 }
-

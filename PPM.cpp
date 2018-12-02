@@ -1,13 +1,11 @@
 #include "PPM.h"
 
-uint8_t state = 0;
-uint8_t curr_ch = 0;
+int16_t ppm[PPM_CH_NUM];
+uint8_t ppmOutputState = 0;
+uint8_t ppmCurrentChannel = 0;
+volatile uint8_t ppmDoneFlag = 0;
 
-extern uint16_t ppm[PPM_CH_NUM]; 
-
-volatile uint8_t ppm_flag = 0;
-
-void PPM_Init(void) {
+void ppmInit(void) {
   for (uint8_t i = 0; i < PPM_CH_NUM; i++)
     ppm[i] = PPM_DEFAULT;
   pinMode(PPM_PIN, OUTPUT);
@@ -21,29 +19,29 @@ void PPM_Init(void) {
   sei();
 }
 
-void PPM_Send(void) {
-  ppm_flag = 0;
+void ppmSend(void) {
+  ppmDoneFlag = 0;
   TCNT1 = 0;
   TCCR1B |= (1 << CS11);
-  while (!ppm_flag) {};
+  while (!ppmDoneFlag) {};
 }
 
 ISR(TIMER1_COMPA_vect){
   TCNT1 = 0;
-  if (!state) { // rising edge
+  if (!ppmOutputState) { // rising edge
     digitalWrite(PPM_PIN, 1);
     OCR1A = PPM_PULSE_LENGTH * 2;
-    state = 1;
+    ppmOutputState = 1;
   } else { // falling edge
     digitalWrite(PPM_PIN, 0);
-    state = 0;
-    if (curr_ch >= PPM_CH_NUM) {
-      curr_ch = 0;
+    ppmOutputState = 0;
+    if (ppmCurrentChannel >= PPM_CH_NUM) {
+      ppmCurrentChannel = 0;
       TCCR1B &= ~(1 << CS11);
-      ppm_flag = 1;
+      ppmDoneFlag = 1;
     } else {
-      OCR1A = (ppm[curr_ch] - PPM_PULSE_LENGTH)*2;
-      curr_ch++;
+      OCR1A = (ppm[ppmCurrentChannel] - PPM_PULSE_LENGTH)*2;
+      ppmCurrentChannel++;
     }
   }
 }
